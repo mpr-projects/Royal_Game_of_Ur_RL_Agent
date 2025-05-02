@@ -1,4 +1,4 @@
-# Royal Game of Ur RL_Agent
+# Royal Game of Ur RL Agent
 This repository contains the code that I wrote to train reinforcement-learning agents for *The Royal Game of Ur* and a version of the game *Mancala*. See the *Portfolio* page on my website for more details.
 
 Currently the repository only contains parameters for the on-policy Q-Learning Monte Carlo (*q_mc*) agent of the Royal Game of Ur. To use it
