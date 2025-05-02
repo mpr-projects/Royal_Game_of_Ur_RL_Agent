@@ -220,11 +220,11 @@ def play(seed=None, names=('Player 0', 'Player 1'), player_types=('human', 'huma
     ax.axis('off')
 
     text0 = ax.annotate(
-        '', xy=(0.5, 0), xycoords='axes fraction', xytext=(0, -30),
+        '', xy=(0.5, -0.05), xycoords='axes fraction', xytext=(0, -30),
         textcoords='offset pixels',  ha='center', fontsize=12, va='bottom')
 
     text1 = ax.annotate(
-        '', xy=(0.5, 1), xycoords='axes fraction', xytext=(0, +30),
+        '', xy=(0.5, 1.05), xycoords='axes fraction', xytext=(0, +30),
         textcoords='offset pixels',  ha='center', fontsize=12, va='top')
 
     human_game_state['labels'] = [text0, text1]
