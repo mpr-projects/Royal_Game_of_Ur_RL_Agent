@@ -12,4 +12,4 @@ During the game you see the randomly chosen roll of the die. When it's your turn
 
 You can also run `python play_match.py n_games` for a match over *n_games* games.
 
-Note, the requirements file only contains the required packages to play the game, not to train it. You'll have to install additional packages in that case.
+Note, the requirements file only contains the required packages to play the game, not to train it. My code uses JAX and the requirements file downloads the CPU version of JAX. If you want to train models then you should probably install the GPU version of JAX, jax[cuda12], and you may also need additional packages.
