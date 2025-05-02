@@ -1,0 +1,7 @@
+folder_reference_player: outputs/outputs_q_mc/20230614_162638  # if folder_evaluated_player is not given it will default to this folder
+reference_player: last  # can be the string/integer of the epoch or 'last'
+folder_evaluated_player: outputs/outputs_q_mc_off_policy/20230821_084310  # can be the string/integer of i) one epoch, ii) a list of epochs, iii) all (reference_player will be excluded)
+evaluated_player: all
+n_games: 200
+n_players: 5  # number of processes that play in parallel
+backend: cpu

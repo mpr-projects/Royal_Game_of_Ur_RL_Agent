@@ -1,0 +1,86 @@
+# -----------------------------------------------------------------------------
+# Description of latest (third) test
+# -----------------------------------------------------------------------------
+I now increase the size of the replay buffer to contain multiple samples. The
+main process still waits for a new sample to be added before it samples from
+the rb and computes gradients and updates params. The samples it draws from the
+rb, however, now come from multiple games.
+
+In the previous tests only one game at a time was used in training. This means
+that the samples in a mini-batch were highly dependent on each other. ML theory
+normally works under the assumption of independent samples, which should be
+(better) satisfied now.
+
+Since in each epoch the main process waits for a new sample to be added to the
+rb before continuing with training, each move in the rb is used at most once
+(on average). (If the rb is updated more quickly than the main process can
+process a sample, some moves may not be used at all.) This has two
+consequences:
+	- There is no risk of overfitting to a sample in the rb, but
+	- it seems wasteful to only use a sample once.
+
+Also note that we're doing on-policy training. Thus, we want to keep the rb
+small as to not train with out-of-date samples.
+
+By using a larger replay buffer we can now also add a sampling offset. Ie the
+first N entries in the rb will be ignored. If the rb is now updated during
+sampling the first samples will be thrown out but since they are not used in
+sampling no (or fewer) collisions will occur.
+
+
+# -----------------------------------------------------------------------------
+# Description of second test
+# -----------------------------------------------------------------------------
+This (and any future tests) will focus on training with a replay buffer.
+
+Compared to the previous test the replay buffer is now continuously updated
+with new samples. The size of the replay buffer is kept at the approximate
+number of moves of one game (ie ~one sample is saved).
+
+Since the main process may draw samples from the rb at the same time as the rb
+is updated there can be some collisions (some samples may get deleted just as
+they are being sampled -- if that happens the sampler just tries again).
+
+There can also be timing issues, for example, if we have two sample creators
+that happen to finish sample creation at a similar time, 'new_sample' will be
+sent to the main process twice in a row (before the main process can consume
+the first message & sample from the rb). If the main process then samples and
+updates more quickly than new samples can be created, the same (second) sample
+will be used in training twice in a row (and the first one will not be used at
+all). Sampling collisions (see previous paragraph), which delayed the main
+process, can cause cause this to happen more often
+
+This could be prevented by only sending 'new_sample' if q_comm_out is empty. I
+don't want to do that though because then I would be running the same test as
+before (which is the same as training without a rb) just that some samples
+would be ignored/dropped.
+
+In future tests I will increase the size of the rb and introduce a sampling
+offset (so sampling doesn't start from the first samples in the rb but later).
+This will reduce or elimininate sampling collisions.
+
+So the point of this test is to see if these occasional overlaps cause an issue
+for training.
+
+
+# -----------------------------------------------------------------------------
+# Description of first test
+# -----------------------------------------------------------------------------
+This test about q_mc contains two components:
+	- training without a replay buffer (rb) and
+	- training with a replay buffer in the same way as without a rb.
+
+Training without a replay buffer:
+In this case the sample creators play a game, compute gradients and send them
+to the main process through a queue. The main process gets the gradients from
+the queue, updates the params and sends them to the sample creators through
+another queue.
+
+Training with a replay buffer:
+This is effectively identical to the case without a replay buffer. The sample
+creators play a game and save the (formatted) game moves (sample) to the rb.
+The main process gets the sample from the rb, computes gradients, updates
+params and sends the params to the sample creators in a queue. This is timed
+such that the rb only gets updated with a new sample when the previous sample
+has been consumed by the main process (and the main process waits for a new
+ sample before updating -- ie no sample is used twice).

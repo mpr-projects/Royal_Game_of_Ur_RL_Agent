@@ -1,0 +1,95 @@
+training:
+  seed: 505
+  backend: gpu
+  method: q_mc_off_policy
+  td_n: 5  # only used when method is q_tdn or q_tdn_off_policy
+  skip_single_option: False  # determines whether to use (for training) moves in games where only one option is available
+  use_replay_buffer: True
+  batch_size: 300  # number of moves
+
+  # -1 means run indefinitely, ie until stopped manually; this setting needs to
+  # be consistent with optimizer_settings, which may require max_epochs to be
+  # larger than 0 (ie not -1)
+  max_epochs: 250000
+
+  gamma: 0.99
+  alpha: 0.9
+
+# these settings only apply if 'use_replay_buffer' is False
+no_replay_buffer:
+  # as parameter updates are computed they are put on a queue, the main process
+  # then gets the updates from the queue and applies them to the parameters;
+  # if samples are created and processed more quickly than the main process can
+  # use them, then the queue size grows (leading to potentially very out-of-date
+  # parameter updates); this setting specifies how large the queue is allowed to
+  # become, once reached the oldest items will be deleted first
+  max_queue_size: 2  # these are sequences, not games (1 game = 2 sequences)
+
+  # all created games are used sequentially, ie the first
+  # 'n_sequences_per_update' are used to compute parameter updates, then they are
+  # discarded, the next 'n_sequences_per_update' are processed, discarded ...,
+  # use 2 for one update per game
+  n_sequences_per_update: 2
+
+# these settings are only used if use_replay_buffer is True
+replay_buffer:  
+  initial_replay_buffer_size: 1  # number of moves
+  target_replay_buffer_size: 300000  # number of moves
+
+  # number of games to ignore at the beginning of the replay buffer to avoid
+  # drawing samples that get deleted at the same time; this is not used if
+  # 'only_one_sample_in_replay_buffer' is True
+  replay_buffer_sampling_offset: 600
+
+  # on average, ignored if only_one_sample_in_replay_buffer is True  # Todo: this is now epochs_per_sample_creator_update because a sample creator can play multiple games
+  epochs_per_game: 1
+
+  # if True then training with a replay buffer is effectively the same as
+  # training without one (used for testing)
+  only_one_game_in_replay_buffer: False 
+
+  # if True then the first 'n_sequences_per_update' sequences are used for
+  # training and then discarded, then the next 'n_sequences_per_update' are
+  # used, ... ie there is no mixing of moves from different games (other than
+  # those covered by 'n_sequences_per_update') but you can use off-policy
+  # learning; use 2 'n_sequences_per_update' for training with one game at a time
+  sequential_sampling: True
+  n_sequences_per_update: 2
+  remove_last: True  # if True then all old samples will be used, if the replay buffer is full then sample creation will wait until there is sufficient space to add the latest sample; if False then the oldest samples will be deleted if the rb is full (for testing on- vs off-policy training); if True no sampling offset will be used
+
+  # if sequential_sampling is False then moves across all samples are chosen,
+  # this means that all samples in the replay buffer are processed which can be
+  # slow; by limiting the number of samples which are used at a time sampling
+  # becomes faster (at the expense of less diversity in the sample)
+  max_n_sequences_per_sample: 5
+
+sample_creation:
+  seed: 42
+  backend: gpu
+
+  # number of processes that will create samples at the same time, each sample
+  # creator will play 'n_games_per_sample_creator' games
+  n_sample_creators: 1
+
+  # number of games one sample_creator plays concurrently (computation for each
+  # game is done until the last game has finished -- moves that are computed
+  # after a game ends are not saved)
+  n_games_per_sample_creator: 500
+
+  # sample creation takes place in separate processes from the main process
+  # (which holds the parameters), these parameters are sent to the sample
+  # creators in regular intervals to ensure they use up-to-date params in
+  # sample creation
+  param_update_interval: 1  # epochs
+
+game:
+  N_STONES: 7
+
+output:
+  params_save_interval: 500
+  n_params_to_keep: -1
+  evaluation_backend: cpu
+  n_evaluation_games: 200  # number of test games to play (-1 for no evaluation)
+  save_sample_use: False
+  measure_speed_start_epoch: 100
+  measure_speed_end_epoch: 10100
