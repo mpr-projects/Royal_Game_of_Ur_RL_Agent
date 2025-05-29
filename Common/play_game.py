@@ -1,5 +1,7 @@
 # this file will be symlinked in the respective game-folders, running a
-# symlink'ed file uses the path of the target file, not of the link file
+# symlink'ed file uses the path of the target file, not of the link file,
+# by updating the path we make sure that all imports use the files in the
+# respective game-folders
 import os
 import sys
 sys.path.remove(sys.path[0])
