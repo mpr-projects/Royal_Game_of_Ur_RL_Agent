@@ -6,7 +6,9 @@ import multiprocessing
 import multiprocessing.managers
 
 # this file will be symlinked in the respective game-folders, running a
-# symlink'ed file uses the path of the target file, not of the link file
+# symlink'ed file uses the path of the target file, not of the link file,
+# by updating the path we make sure that all imports use the files in the
+# respective game-folders
 import os
 import sys
 sys.path.remove(sys.path[0])
@@ -60,15 +62,18 @@ def initializer(settings, load_optimizer=True):
     jax.config.update('jax_platform_name', backend)
     jax.default_device = jax.devices(backend)[0]
 
+    # loss_functions.apply will be used in the gradient computation, which gets compiled
+    # separately; we're not jit-compiling this 'apply' function because I remember reading
+    # that (re-)compiling a compiled function is not ideal (Todo: double check that)
     init, apply = training._utils.get_init_apply(settings, backend, jit_compile=False)
     training._utils.init = init
-    training.loss_functions.apply = apply  # will be used in gradient, which will be compiled separately (I remember from somewhere that compiling a compiled function is not ideal, Todo: double check that)
+    training.loss_functions.apply = apply
 
     _, apply = training._utils.get_init_apply(settings, backend, jit_compile=True)
     training.value_functions.apply = apply
 
     if load_optimizer:
-        # (dynamically) load optimizer
+        # (dynamically) load optimizer based on the given settings
         sys.path.append(settings['workings']['settings_folder'])
         import optimizer_settings
         optimizer = optimizer_settings.load_optimizer(settings)
@@ -84,7 +89,7 @@ def update(grads, params, opt_state):
 def empty_queue(q):
     while True:
         try:
-            q_params.get(block=False)
+            q.get(block=False)
         except:
             break
 
@@ -178,7 +183,8 @@ if __name__ == '__main__':
         settings['replay_buffer']['epochs_per_game']
 
     # if we sample sequentially from the replay buffer then the sample creator
-    # waits until a new sample becomes available (don't need to check here)
+    # waits until a new sample becomes available (done in _replay_buffer.py),
+    # so we don't need to check for 'new_sample' messages --> disable check
     if settings['replay_buffer']['sequential_sampling'] is True:
         max_epochs_per_game = float('inf')
 
@@ -187,15 +193,16 @@ if __name__ == '__main__':
         f'Initialization of replay buffer returned unexpected value {msg}.'
 
     # training loop
-    while epoch != (max_epochs := settings['training']['max_epochs']):
+    while epoch != (max_epochs := settings['training']['max_epochs']):  # the user can change max_epochs during training
         training._utils.measure_speed_start(settings, epoch)
 
         # sample: (board, options, idx, R)
         st = time.time()
-        sample = interface.sample_creation.sample_from_rb(rb, settings, params, state)  # Todo: separate process pool to pre-load samples?
+        sample = interface.sample_creation.sample_from_rb(rb, settings, params, state)  # Todo: use separate process pool to pre-load samples?
         et = time.time()
 
-        # visualize activations to get evaluate adequacy of model
+        # visualize activations to evaluate adequacy of model
+        # Todo: move definition out of training loop
         def visualize(state):
             import matplotlib.pyplot as plt
             acts = state['~']['activations']
@@ -250,7 +257,7 @@ if __name__ == '__main__':
 
         n_epochs_since_update += 1
 
-        if q_comm_in.qsize() > 0 or only_one_game_in_rb  or n_epochs_since_update == max_epochs_per_game:
+        if q_comm_in.qsize() > 0 or only_one_game_in_rb or n_epochs_since_update == max_epochs_per_game:
             msg = q_comm_in.get()
             empty_queue(q_comm_in)
             n_epochs_since_update = 0
